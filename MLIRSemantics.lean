@@ -2,6 +2,8 @@
 
 def to1 (E F: Type → Type) :=
   ∀ T, E T → F T
+
+@[simp]
 def sum1 (E F: Type → Type) :=
   fun T => E T ⊕ F T
 inductive void1: Type -> Type
@@ -13,6 +15,10 @@ class Member (E F: Type → Type) where
 
 instance {E}: Member E E where
   inject := (fun _ => id)
+
+-- | Consider using Lean's inbuilt coercions?
+instance {E F G: Type -> Type} [Coe (E X) (F X)]: Coe (E X) ((sum1 F G) X) where 
+  coe e := Sum.inl (Coe.coe e)
 
 instance {E F G} [Member E F]: Member E (sum1 F G) where
   inject T := Sum.inl ∘ Member.inject T
@@ -45,8 +51,8 @@ inductive fitree (E: Type → Type) (R: Type) where
 def fitree.ret {E R}: R → fitree E R :=
   fitree.Ret
 
-def fitree.trigger {E F: Type → Type} {T} [Member E F] (e: E T): fitree F T :=
-  fitree.Vis (Member.inject _ e) fitree.ret
+def fitree.trigger {E F: Type → Type} {T} [Coe (E T) (F T)] (e: E T): fitree F T :=
+  fitree.Vis e fitree.ret
 
 def fitree.bind {E R T} (t: fitree E T) (k: T → fitree E R) :=
   match t with
@@ -65,6 +71,7 @@ def interp {M} [Monad M] {E} (h: forall ⦃T⦄, E T → M T):
     match t with
     | fitree.Ret r => pure r
     | fitree.Vis e k => bind (h e) (λ t => interp h (k t))
+
 
 -- Interpretation into the state monad
 def interp_state {M S} [Monad M] {E} (h: forall ⦃T⦄, E T → StateT S M T):
